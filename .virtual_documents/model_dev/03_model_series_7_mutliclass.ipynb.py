@@ -144,7 +144,7 @@ x = tf.keras.layers.Flatten()(last_output)
 x = tf.keras.layers.Dense(1024, activation='relu')(x)
 # Add a fully connected layer with 1,024 hidden units and ReLU activation
 x = tf.keras.layers.Dense(1024, activation='relu')(x)
-# Add a final sigmoid layer for classification
+# Add a final softmax layer for classification
 x = tf.keras.layers.Dense(7, activation='softmax')(x)
 
 

@@ -8,7 +8,7 @@ import random
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-import matplotlib.image as mpimg
+
 import cv2
 
 
@@ -24,13 +24,13 @@ df = df_orig.copy()
 df = df.dropna(subset=['img_name'])
 
 
-df['brand'] = df['brand'].map(lambda x: x.replace(' ', '_'))
+df['model'] = df['model'].map(lambda x: x.replace(' ', '_'))
 
 
-brand_list = list(df['brand'].value_counts()[:5].index)
+model_list = list(df['model'].value_counts()[:12].index)
 
 
-brand_list.sort()
+model_list.sort()
 
 
 BASE_DIR = os.path.dirname(os.getcwd())
@@ -51,9 +51,9 @@ os.mkdir(TRAINING_DIR)
 os.mkdir(VALIDATION_DIR)
 
 
-for brand in brand_list:
-    os.mkdir(os.path.join(TRAINING_DIR, brand))
-    os.mkdir(os.path.join(VALIDATION_DIR, brand))
+for model in model_list:
+    os.mkdir(os.path.join(TRAINING_DIR, model))
+    os.mkdir(os.path.join(VALIDATION_DIR, model))
 
 
 for index, row in df.iterrows():
@@ -62,19 +62,28 @@ for index, row in df.iterrows():
     
     random_number = np.random.randint(1,101)
     
-    if row['brand'] in brand_list and random_number <= 80:
-        shutil.copy(CURR_IMG_DIR, os.path.join(TRAINING_DIR, row['brand']))
+    if row['model'] in model_list and random_number <= 80:
+        shutil.copy(CURR_IMG_DIR, os.path.join(TRAINING_DIR, row['model']))
         
-    elif row['brand'] in brand_list and random_number > 80:
-        shutil.copy(CURR_IMG_DIR, os.path.join(VALIDATION_DIR, row['brand']))
+    elif row['model'] in model_list and random_number > 80:
+        shutil.copy(CURR_IMG_DIR, os.path.join(VALIDATION_DIR, row['model']))
 
 
-train_datagen = ImageDataGenerator(rescale=1/255)
+train_datagen = ImageDataGenerator(
+    rescale=1/255,
+#     rotation_range=40,
+#     width_shift_range=0.2,
+#     height_shift_range=0.2,
+#     shear_range=0.2,
+#     zoom_range=0.2,
+#     horizontal_flip=False,
+#     fill_mode='nearest'
+)
 
 train_generator = train_datagen.flow_from_directory(
     TRAINING_DIR,
     target_size=(300, 300),
-    batch_size=32,
+#     batch_size=32,
     class_mode='categorical'
 )
 
@@ -84,7 +93,7 @@ validation_datagen = ImageDataGenerator(rescale=1/255)
 validation_generator = train_datagen.flow_from_directory(
     VALIDATION_DIR,
     target_size=(300, 300),
-    batch_size=32,
+#     batch_size=32,
     class_mode='categorical'
 )
 
@@ -103,7 +112,7 @@ model = tf.keras.models.Sequential([
     tf.keras.layers.MaxPooling2D(2,2),
     tf.keras.layers.Flatten(),
     tf.keras.layers.Dense(512, activation='relu'),
-    tf.keras.layers.Dense(5, activation='softmax')
+    tf.keras.layers.Dense(12, activation='softmax')
 ])
 
 
@@ -115,8 +124,11 @@ model.compile(loss='categorical_crossentropy',
 history = model.fit(
     train_generator,
     validation_data=validation_generator,
-    epochs=15
+    epochs=40
 )
+
+
+model.evaluate(validation_generator)
 
 
 pre_trained_model = tf.keras.applications.InceptionV3(
@@ -142,7 +154,7 @@ x = tf.keras.layers.Dense(1024, activation='relu')(x)
 # Add a fully connected layer with 1,024 hidden units and ReLU activation
 x = tf.keras.layers.Dense(1024, activation='relu')(x)
 # Add a final softmax layer for classification
-x = tf.keras.layers.Dense(5, activation='softmax')(x)
+x = tf.keras.layers.Dense(12, activation='softmax')(x)
 
 
 model = tf.keras.models.Model(pre_trained_model.input, x)
@@ -155,19 +167,19 @@ model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001),
 history = model.fit(
     train_generator,
     validation_data=validation_generator,
-    batch_size=32,
-    epochs=45
+#     batch_size=32,
+    epochs=30
 )
 
 
 model.evaluate(validation_generator)
 
 
-BRAND = random.choice(brand_list)
-BRAND_DIR = os.path.join(VALIDATION_DIR, BRAND)
-WATCHES = os.listdir(BRAND_DIR)
+MODEL = random.choice(model_list)
+MODEL_DIR = os.path.join(VALIDATION_DIR, MODEL)
+WATCHES = os.listdir(MODEL_DIR)
 WATCH = random.choice(WATCHES)
-WATCH_DIR = os.path.join(BRAND_DIR, WATCH)
+WATCH_DIR = os.path.join(MODEL_DIR, WATCH)
 
 
 img = image.load_img(WATCH_DIR, target_size=(300, 300))
@@ -180,18 +192,18 @@ prediction = model.predict(x)
 
 img_orig = cv2.imread(WATCH_DIR)[...,::-1]
 imgplot = plt.imshow(img_orig)
-print(f"Actual:\t\t{BRAND}\nPredicted:\t{brand_list[np.argmax(prediction)]}")
+print(f"Actual:\t\t{MODEL}\nPredicted:\t{model_list[np.argmax(prediction)]}")
 
 
 correct = 0
-n = 200
+n = 35
 
 for i in range(n):
-    BRAND = random.choice(brand_list)
-    BRAND_DIR = os.path.join(VALIDATION_DIR, BRAND)
-    WATCHES = os.listdir(BRAND_DIR)
+    MODEL = random.choice(model_list)
+    MODEL_DIR = os.path.join(VALIDATION_DIR, MODEL)
+    WATCHES = os.listdir(MODEL_DIR)
     WATCH = random.choice(WATCHES)
-    WATCH_DIR = os.path.join(BRAND_DIR, WATCH)
+    WATCH_DIR = os.path.join(MODEL_DIR, WATCH)
     
     img = image.load_img(WATCH_DIR, target_size=(300, 300))
     x = image.img_to_array(img) / 255.
@@ -199,7 +211,7 @@ for i in range(n):
 
     prediction = model.predict(x)
     
-    if BRAND == brand_list[np.argmax(prediction)]:
+    if MODEL == model_list[np.argmax(prediction)]:
         correct += 1
 
 print(round(100 * correct/n, 2))
